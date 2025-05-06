@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+*, :after, :before {
+  border: 0 solid #e5e7eb;
+  box-sizing: border-box;
+}
+
+.title {
+  text-align: center;
+  font-size: 40px;
+}
+
+body {
+  display: block;
+  margin: 0;
+  font-family: Roboto;
+}
+
+.color-739BDE {
+  color: #739BDE;
+  font-weight: bold;
+}
+
+.color-278044 {
+  color: #278044;
+  font-weight: bold;
+}
+
+.container {
+  max-width: 1440px;
+  padding: 0 16px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+input {
+  height: 40px;
+  width: 200px;
+  padding: 4px 12px;
+  border: 1px solid #EBEBEB;
+  border-radius: 12px;
+}
+
+button {
+  height: 40px;
+  width: 100px;
+  background-color: #278044;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.donate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+img {
+  width: 358px;
+  height: auto;
+  max-width: 100%;
+}
+
+.mt-10 {
+  margin-top: 40px;
+}

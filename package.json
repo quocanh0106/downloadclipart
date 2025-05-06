@@ -1,0 +1,26 @@
+{
+  "name": "web-crawler",
+  "version": "1.0.0",
+  "description": "This is web crawler built using cheerio js and node-fetch.",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "body-parser": "^2.2.0",
+    "cheerio": "^1.0.0-rc.12",
+    "express": "^5.1.0",
+    "node-fetch": "^2.7.0",
+    "nodemon": "^2.0.20",
+    "puppeteer": "^24.8.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.8.4"
+  },
+  "devDependencies": {
+    "@types/node-fetch": "^2.6.2"
+  }
+}
