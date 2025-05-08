@@ -75,3 +75,7 @@ img {
 .mt-10 {
   margin-top: 40px;
 }
+.mb-2 {
+  margin-bottom: 8px;
+  display: block;
+}
