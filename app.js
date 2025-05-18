@@ -10,7 +10,7 @@ import cluster from 'cluster';
 import os from 'os';
 import pLimit from 'p-limit';
 import axiosInstance from './utils/axios.js';
-
+import axios from 'axios';
 const numCPUs = os.cpus().length;
 const PORT = 8080;
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -82,81 +82,108 @@ if (cluster.isMaster) {
 
       const customilyUrl = `https://sh.customily.com/api/settings/unified/${verifiedHandle}?shop=${shopifyDomain}&productId=${productId}`;
       const customilyRes = await axiosInstance.get(customilyUrl);
-      const customilyData = customilyRes.data;
+      const customilyData = customilyRes.data
 
-      res.send(customilyData)
+      const maxOptions = customilyData.sets.length ? customilyData.sets.flatMap(item => item.options).reduce((max, item) => {
+        return item?.values?.length > max?.values?.length ? item: max
+      })?.values?.length : 100
 
-      const swatchValueIds = [];
-      customilyData.sets?.forEach(set => {
-        console.log(set);
-        
+      const detailUrl = `https://app.customily.com/api/Product/GetProduct?productId=${customilyData.productConfig?.initial_product_id}`
+
+      const detailResponse = await axiosInstance.get(detailUrl);
+      const detailData = detailResponse.data;
+
+      const swatchValueIds = detailData?.preview?.imagePlaceHoldersPreview
+      ?.map(item => item.imageLibraryId)
+      .filter(val => val != null);;
+
+      const limit = pLimit(10);
+
+      const elementDataPromises = swatchValueIds.flatMap((item) => {
+        return Array.from({ length: maxOptions }, (_, index) => {
+          const libraryId = item;
+          const url = `https://app.customily.com/api/Libraries/${libraryId}/Elements/Position/${index + 1}`;
+          console.log('Fetching URL:', url);
+      
+          return axios.get(url)
+            .then(response => response.data)
+            .catch(error => {
+              console.error(`❌ Error fetching ${url}`, error.message);
+              return null;
+            });
+        });
       });
+      
+      const elementData = await Promise.all(elementDataPromises);
+      
+      const listClipArt = elementData.filter(item => item !== null).map(item => ({
+        ...item,
+        Path: item.Path?.replace('/Content', 'https://cdn.customily.com'),
+        ThumbnailPath: item.ThumbnailPath?.replace('/Content', 'https://cdn.customily.com'),
+      }));
 
-      // const limit = pLimit(10);
-      // const elementDataPromises = swatchValueIds.map(item => {
-      //   const libraryId = item.libraryId === 0 ? item.optionset_id : item.libraryId;
-      //   const url = `https://app.customily.com/api/Libraries/${libraryId}/Elements/Position/${item.value_id}`;
-      //   return limit(() =>
-      //     axiosInstance.get(url).then(response => ({
-      //       ...item,
-      //       libraryId,
-      //       clipartUrl: response.data.Path.replace('/Content/product-images', 'https://cdn.customily.com/product-images')
-      //     })).catch(err => ({
-      //       ...item,
-      //       libraryId,
-      //       error: err.message
-      //     }))
-      //   );
-      // });
+      const validCliparts = listClipArt.filter(item => item?.Path); // hoặc bạn filter kiểu khác
+      const groupedByLibrary = {};
 
-      // const results = await Promise.allSettled(elementDataPromises);
-      // const validResults = results
-      //   .filter(r => r.status === 'fulfilled' && r.value?.clipartUrl)
-      //   .map(r => r.value);
-
-      // const groupedByLibrary = {};
-      // validResults.forEach(item => {
-      //   const libraryId = item.libraryId;
-      //   if (!groupedByLibrary[libraryId]) groupedByLibrary[libraryId] = [];
-      //   groupedByLibrary[libraryId].push({ url: item.clipartUrl, value: item.value });
-      // });
-
-      // const productFolder = path.join(downloadDir, verifiedHandle);
-      // if (!fs.existsSync(productFolder)) fs.mkdirSync(productFolder);
-
-      // const downloadLimit = pLimit(5);
-
-      // for (const [libraryId, urls] of Object.entries(groupedByLibrary)) {
-      //   const libraryDir = path.join(productFolder, libraryId);
-      //   if (!fs.existsSync(libraryDir)) fs.mkdirSync(libraryDir);
-
-      //   await Promise.allSettled(urls.map(url => downloadLimit(async () => {
-      //     const fileName = url.value + '.png';
-      //     const filePath = path.join(libraryDir, fileName);
-      //     const writer = fs.createWriteStream(filePath);
-      //     const response = await axiosInstance.get(url.url, { responseType: 'stream' });
-      //     await new Promise((resolve, reject) => {
-      //       response.data.pipe(writer);
-      //       writer.on('finish', resolve);
-      //       writer.on('error', reject);
-      //     });
-      //   })));
-      // }
-
-      // const zipPath = path.join(downloadDir, `${verifiedHandle}.zip`);
-      // const output = fs.createWriteStream(zipPath);
-      // const archive = archiver('zip', { zlib: { level: 9 } });
-
-      // output.on('close', async () => {
-      //   res.download(zipPath, () => {
-      //     fs.rmSync(productFolder, { recursive: true, force: true });
-      //     fs.unlinkSync(zipPath);
-      //   });
-      // });
-
-      // archive.pipe(output);
-      // archive.directory(productFolder, false);
-      // archive.finalize();
+      validCliparts.forEach(item => {
+        const libraryId = item.Library_LibraryId?.toString();
+        const categoryId = item.LibraryCategoryId?.toString();
+      
+        if (!groupedByLibrary[libraryId]) groupedByLibrary[libraryId] = {};
+      
+        const categoryKey = categoryId || '__no_category__';
+        if (!groupedByLibrary[libraryId][categoryKey]) groupedByLibrary[libraryId][categoryKey] = [];
+      
+        groupedByLibrary[libraryId][categoryKey].push(item);
+      });
+      
+      const productFolder = path.join(downloadDir, verifiedHandle);
+      if (!fs.existsSync(productFolder)) fs.mkdirSync(productFolder);
+      
+      const downloadLimit = pLimit(5);
+      
+      // Tải từng ảnh theo thư mục LibraryId / CategoryId
+      for (const [libraryId, categories] of Object.entries(groupedByLibrary)) {
+        const libraryDir = path.join(productFolder, libraryId);
+        if (!fs.existsSync(libraryDir)) fs.mkdirSync(libraryDir);
+      
+        for (const [categoryId, cliparts] of Object.entries(categories)) {
+          const targetDir = categoryId === '__no_category__'
+            ? libraryDir
+            : path.join(libraryDir, categoryId);
+      
+          if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir);
+      
+          await Promise.allSettled(cliparts.map(clipart => downloadLimit(async () => {
+            const fileName = `${clipart.Name || clipart.ImageId}.png`; // fallback nếu thiếu Name
+            const filePath = path.join(targetDir, fileName);
+            const writer = fs.createWriteStream(filePath);
+            const response = await axiosInstance.get(clipart.Path, { responseType: 'stream' });
+      
+            await new Promise((resolve, reject) => {
+              response.data.pipe(writer);
+              writer.on('finish', resolve);
+              writer.on('error', reject);
+            });
+          })));
+        }
+      }
+      
+      // Nén folder thành zip
+      const zipPath = path.join(downloadDir, `${verifiedHandle}.zip`);
+      const output = fs.createWriteStream(zipPath);
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      
+      output.on('close', async () => {
+        res.download(zipPath, () => {
+          fs.rmSync(productFolder, { recursive: true, force: true });
+          fs.unlinkSync(zipPath);
+        });
+      });
+      
+      archive.pipe(output);
+      archive.directory(productFolder, false);
+      archive.finalize();
 
     } catch (error) {
       console.error('❌ Lỗi:', error);

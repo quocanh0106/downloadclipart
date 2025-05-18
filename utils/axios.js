@@ -3,7 +3,7 @@ import https from 'https';
 import axiosRetry from 'axios-retry';
 
 const axiosInstance = axios.create({
-  timeout: 15000,
+  timeout: 5000,
   httpsAgent: new https.Agent({ keepAlive: true }),
 });
 
