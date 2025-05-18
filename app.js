@@ -46,6 +46,7 @@ if (cluster.isMaster) {
 
   app.post('/crawl', async (req, res) => {
     const productUrl = req.body.url;
+    const maxOptions = 500;
     const downloadDir = path.join(__dirname, 'downloads');
     if (!fs.existsSync(downloadDir)) fs.mkdirSync(downloadDir);
 
@@ -84,10 +85,6 @@ if (cluster.isMaster) {
       const customilyRes = await axiosInstance.get(customilyUrl);
       const customilyData = customilyRes.data
 
-      const maxOptions = customilyData.sets.length ? customilyData.sets.flatMap(item => item.options).reduce((max, item) => {
-        return item?.values?.length > max?.values?.length ? item: max
-      })?.values?.length : 100
-
       const detailUrl = `https://app.customily.com/api/Product/GetProduct?productId=${customilyData.productConfig?.initial_product_id}`
 
       const detailResponse = await axiosInstance.get(detailUrl);
@@ -95,26 +92,31 @@ if (cluster.isMaster) {
 
       const swatchValueIds = detailData?.preview?.imagePlaceHoldersPreview
       ?.map(item => item.imageLibraryId)
-      .filter(val => val != null);;
+      .filter((val, index, self) => val != null && self.indexOf(val) === index);
 
       const limit = pLimit(10);
 
-      const elementDataPromises = swatchValueIds.flatMap((item) => {
-        return Array.from({ length: maxOptions }, (_, index) => {
-          const libraryId = item;
-          const url = `https://app.customily.com/api/Libraries/${libraryId}/Elements/Position/${index + 1}`;
-          console.log('Fetching URL:', url);
+      const elementDataPromises = swatchValueIds.flatMap((libraryId) => {
+        return Array.from({ length: maxOptions + 1 }, (_, index) =>
+          limit(async () => {
+            const url = `https://app.customily.com/api/Libraries/${libraryId}/Elements/Position/${index}`;
+            console.log('Fetching URL:', url);
       
-          return axios.get(url)
-            .then(response => response.data)
-            .catch(error => {
+            try {
+              const response = await axios.get(url);
+              return response.data;
+            } catch (error) {
               console.error(`❌ Error fetching ${url}`, error.message);
               return null;
-            });
-        });
+            }
+          })
+        );
       });
       
-      const elementData = await Promise.all(elementDataPromises);
+      const settledResults = await Promise.allSettled(elementDataPromises);
+      const elementData = settledResults
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => r.value);
       
       const listClipArt = elementData.filter(item => item !== null).map(item => ({
         ...item,
