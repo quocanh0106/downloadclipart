@@ -79,3 +79,14 @@ img {
   margin-bottom: 8px;
   display: block;
 }
+
+.mb-10 {
+  margin-bottom: 40px;
+  display: block;
+}
+
+.font-bold {
+  font-weight: bold;
+  font-size: 20px;
+  color: red;
+}
