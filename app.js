@@ -96,27 +96,24 @@ if (cluster.isMaster) {
 
       const limit = pLimit(10);
 
-      const elementDataPromises = swatchValueIds.flatMap((libraryId) => {
-        return Array.from({ length: maxOptions + 1 }, (_, index) =>
-          limit(async () => {
+      const elementData = [];
+
+      for (const libraryId of swatchValueIds) {
+        for (let index = 0; index <= maxOptions; index++) {
+          const data = await limit(async () => {
             const url = `https://app.customily.com/api/Libraries/${libraryId}/Elements/Position/${index}`;
-            console.log('Fetching URL:', url);
-      
+            console.log(`Fetching data from: ${url}`);
+            
             try {
               const response = await axios.get(url);
               return response.data;
-            } catch (error) {
-              console.error(`❌ Error fetching ${url}`, error.message);
+            } catch {
               return null;
             }
-          })
-        );
-      });
-      
-      const settledResults = await Promise.allSettled(elementDataPromises);
-      const elementData = settledResults
-        .filter(r => r.status === 'fulfilled' && r.value)
-        .map(r => r.value);
+          });
+          if (data) elementData.push(data);
+        }
+      }
       
       const listClipArt = elementData.filter(item => item !== null).map(item => ({
         ...item,
