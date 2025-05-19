@@ -46,7 +46,7 @@ if (cluster.isMaster) {
 
   app.post('/crawl', async (req, res) => {
     const productUrl = req.body.url;
-    const maxOptions = 1000;
+    const maxOptions = 100;
     const downloadDir = path.join(__dirname, 'downloads');
     if (!fs.existsSync(downloadDir)) fs.mkdirSync(downloadDir);
 
