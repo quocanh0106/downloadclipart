@@ -225,7 +225,7 @@ if (cluster.isMaster) {
 
       output.on('close', async () => {
         // ✅ Gửi email khi file zip đã sẵn sàng
-        const downloadUrl = `http://crawlclipart.com/download/${verifiedHandle}.zip`;
+        const downloadUrl = `https://crawlclipart.com/download/${verifiedHandle}.zip`;
         await sendEmailWithDownloadLink(email, downloadUrl);
 
         // ✅ Xoá thư mục gốc (ảnh) sau khi nén thành công
