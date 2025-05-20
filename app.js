@@ -14,6 +14,7 @@ import axios from 'axios';
 const numCPUs = os.cpus().length;
 const PORT = 8080;
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import nodemailer from 'nodemailer';
 
 const retryGoto = async (page, url, retries = 3) => {
   for (let i = 0; i < retries; i++) {
@@ -22,6 +23,44 @@ const retryGoto = async (page, url, retries = 3) => {
     } catch (e) {
       if (i === retries - 1) throw e;
     }
+  }
+};
+
+const sendEmailWithDownloadLink = async (email, downloadUrl) => {
+  const transporter = nodemailer.createTransport({
+    service: 'Gmail',
+    auth: {
+      user: 'crawlclipart@gmail.com',
+      pass: 'wsxy qyiu gneo crks',
+    }
+  });
+
+  await transporter.sendMail({
+    from: '"Clipart Service" crawlclipart@gmail.com',
+    to: email,
+    subject: '🎁 File clipart của bạn đã sẵn sàng',
+    html: `
+      <p>Chào bạn,</p>
+      <p>File clipart của bạn đã được xử lý xong. Bạn có thể tải về tại đường link sau:</p>
+      <p><a href="${downloadUrl}">${downloadUrl}</a></p>
+      <p>Lưu ý: Link tải sẽ được xóa sau khi tải xong.</p>
+      <p>Nếu bạn không yêu cầu file này, vui lòng bỏ qua email này.</p>
+      <p>Trân trọng,<br/>Clipart Service</p>
+    `
+  });
+}
+
+const emailListPath = path.join(__dirname, 'emails.json');
+if (!fs.existsSync(emailListPath)) fs.writeFileSync(emailListPath, '[]', 'utf-8');
+
+const saveCustomerEmailIfNew = (email) => {
+  const existingEmails = JSON.parse(fs.readFileSync(emailListPath, 'utf-8'));
+  if (!existingEmails.includes(email)) {
+    existingEmails.push(email);
+    fs.writeFileSync(emailListPath, JSON.stringify(existingEmails, null, 2));
+    console.log(`📧 Email mới được lưu: ${email}`);
+  } else {
+    console.log(`📭 Email đã tồn tại: ${email}`);
   }
 };
 
@@ -46,11 +85,19 @@ if (cluster.isMaster) {
 
   app.post('/crawl', async (req, res) => {
     const productUrl = req.body.url;
-    const maxOptions = 100;
+    const email = req.body.email;
+
+    const maxOptions = 1000;
     const downloadDir = path.join(__dirname, 'downloads');
     if (!fs.existsSync(downloadDir)) fs.mkdirSync(downloadDir);
 
     let browser;
+
+    setTimeout(() => {
+      res.send(`<script>alert("⏳ File đang được xử lý. Chúng tôi sẽ gửi email đến ${email} khi hoàn tất."); window.history.back();</script>`);
+    }, 3000);
+    saveCustomerEmailIfNew(email);
+
     try {
       browser = await puppeteer.launch({
         headless: 'new',
@@ -91,8 +138,8 @@ if (cluster.isMaster) {
       const detailData = detailResponse.data;
 
       const swatchValueIds = detailData?.preview?.imagePlaceHoldersPreview
-      ?.map(item => item.imageLibraryId)
-      .filter((val, index, self) => val != null && self.indexOf(val) === index);
+        ?.map(item => item.imageLibraryId)
+        .filter((val, index, self) => val != null && self.indexOf(val) === index);
 
       const limit = pLimit(10);
 
@@ -101,7 +148,7 @@ if (cluster.isMaster) {
           limit(async () => {
             const url = `https://app.customily.com/api/Libraries/${libraryId}/Elements/Position/${index}`;
             console.log('Fetching URL:', url);
-      
+
             try {
               const response = await axios.get(url);
               return response.data;
@@ -112,12 +159,12 @@ if (cluster.isMaster) {
           })
         );
       });
-      
+
       const settledResults = await Promise.allSettled(elementDataPromises);
       const elementData = settledResults
         .filter(r => r.status === 'fulfilled' && r.value)
         .map(r => r.value);
-      
+
       const listClipArt = elementData.filter(item => item !== null).map(item => ({
         ...item,
         Path: item.Path?.replace('/Content', 'https://cdn.customily.com'),
@@ -130,38 +177,38 @@ if (cluster.isMaster) {
       validCliparts.forEach(item => {
         const libraryId = item.Library_LibraryId?.toString();
         const categoryId = item.LibraryCategoryId?.toString();
-      
+
         if (!groupedByLibrary[libraryId]) groupedByLibrary[libraryId] = {};
-      
+
         const categoryKey = categoryId || '__no_category__';
         if (!groupedByLibrary[libraryId][categoryKey]) groupedByLibrary[libraryId][categoryKey] = [];
-      
+
         groupedByLibrary[libraryId][categoryKey].push(item);
       });
-      
+
       const productFolder = path.join(downloadDir, verifiedHandle);
       if (!fs.existsSync(productFolder)) fs.mkdirSync(productFolder);
-      
+
       const downloadLimit = pLimit(5);
-      
+
       // Tải từng ảnh theo thư mục LibraryId / CategoryId
       for (const [libraryId, categories] of Object.entries(groupedByLibrary)) {
         const libraryDir = path.join(productFolder, libraryId);
         if (!fs.existsSync(libraryDir)) fs.mkdirSync(libraryDir);
-      
+
         for (const [categoryId, cliparts] of Object.entries(categories)) {
           const targetDir = categoryId === '__no_category__'
             ? libraryDir
             : path.join(libraryDir, categoryId);
-      
+
           if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir);
-      
+
           await Promise.allSettled(cliparts.map(clipart => downloadLimit(async () => {
             const fileName = `${clipart.Name || clipart.ImageId}.png`; // fallback nếu thiếu Name
             const filePath = path.join(targetDir, fileName);
             const writer = fs.createWriteStream(filePath);
             const response = await axiosInstance.get(clipart.Path, { responseType: 'stream' });
-      
+
             await new Promise((resolve, reject) => {
               response.data.pipe(writer);
               writer.on('finish', resolve);
@@ -170,19 +217,22 @@ if (cluster.isMaster) {
           })));
         }
       }
-      
-      // Nén folder thành zip
+
+      // Nén folder thành zip (chạy ngầm sau khi đã res.send)
       const zipPath = path.join(downloadDir, `${verifiedHandle}.zip`);
       const output = fs.createWriteStream(zipPath);
       const archive = archiver('zip', { zlib: { level: 9 } });
-      
+
       output.on('close', async () => {
-        res.download(zipPath, () => {
-          fs.rmSync(productFolder, { recursive: true, force: true });
-          fs.unlinkSync(zipPath);
-        });
+        // ✅ Gửi email khi file zip đã sẵn sàng
+        const downloadUrl = `http://crawlclipart.com/download/${verifiedHandle}.zip`;
+        await sendEmailWithDownloadLink(email, downloadUrl);
+
+        // ✅ Xoá thư mục gốc (ảnh) sau khi nén thành công
+        fs.rmSync(productFolder, { recursive: true, force: true });
+        console.log(`✅ Đã tạo zip và gửi mail link tải tới ${email}`);
       });
-      
+
       archive.pipe(output);
       archive.directory(productFolder, false);
       archive.finalize();
@@ -193,6 +243,31 @@ if (cluster.isMaster) {
     } finally {
       if (browser) await browser.close();
     }
+  });
+
+  app.get('/download/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, 'downloads', filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).send('❌ File không tồn tại hoặc đã bị xoá');
+    }
+
+    res.download(filePath, (err) => {
+      if (err) {
+        console.error('❌ Lỗi khi tải file:', err.message);
+        return;
+      }
+
+      // Sau khi tải thành công thì xoá file
+      fs.unlink(filePath, (unlinkErr) => {
+        if (unlinkErr) {
+          console.error(`❌ Không thể xoá file ${filename}:`, unlinkErr.message);
+        } else {
+          console.log(`🗑 File ${filename} đã được xoá sau khi tải xong`);
+        }
+      });
+    });
   });
 
   app.listen(PORT, () => {
