@@ -103,11 +103,11 @@ if (cluster.isMaster) {
     await retryGoto(page, productUrl);
 
     const shopifyDomain = await page.evaluate(async () => {
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 5; i++) {
         if (typeof Shopify !== 'undefined' && Shopify.shop) {
           return Shopify.shop;
         }
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       return null;
     });
