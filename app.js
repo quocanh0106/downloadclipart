@@ -16,7 +16,7 @@ let PORT = 8080;
 let __dirname = dirname(fileURLToPath(import.meta.url));
 import nodemailer from 'nodemailer';
 
-let retryGoto = async (page, url, retries = 3) => {
+let retryGoto = async (page, url, retries = 4) => {
   for (let i = 0; i < retries; i++) {
     try {
       return await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
@@ -102,14 +102,13 @@ if (cluster.isMaster) {
     let page = await browser.newPage();
     await retryGoto(page, productUrl);
 
-    const shopifyDomain = await page.evaluate(async () => {
-      for (let i = 0; i < 50; i++) {
-        if (typeof Shopify !== 'undefined' && Shopify.shop) {
-          return Shopify.shop;
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000));
+    let shopifyDomain = await page.evaluate(() => {
+      new Promise(resolve => setTimeout(resolve, 3000));
+      try {
+        return Shopify.shop;
+      } catch {
+        return null;
       }
-      return null;
     });
 
     if (!shopifyDomain) {
