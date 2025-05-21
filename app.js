@@ -106,13 +106,10 @@ if (cluster.isMaster) {
       try {
         return Shopify?.shop || null;
       } catch {
+        res.send('<script>alert("❌ Không tìm thấy domain Shopify."); window.history.back();</script>');
         return null;
       }
     });
-
-    if (!shopifyDomain) {
-      return res.send('<script>alert("❌ Không tìm thấy domain Shopify."); window.history.back();</script>');
-    }
 
     let cleanUrl = productUrl.split('?')[0];
     let handle = new URL(cleanUrl).pathname.split("/products/")[1]?.split("/")[0];
