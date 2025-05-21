@@ -106,10 +106,13 @@ if (cluster.isMaster) {
       try {
         return Shopify?.shop || null;
       } catch {
-        res.send('<script>alert("❌ Không tìm thấy domain Shopify."); window.history.back();</script>');
         return null;
       }
     });
+
+    if (!shopifyDomain) {
+      return res.send('<script>alert("❌ Không phải Shopify hoặc Product này không thuộc app customily."); window.history.back();</script>');
+    }
 
     let cleanUrl = productUrl.split('?')[0];
     let handle = new URL(cleanUrl).pathname.split("/products/")[1]?.split("/")[0];
@@ -136,7 +139,7 @@ if (cluster.isMaster) {
 
     setTimeout(() => {
       res.send(`<script>alert("⏳ File đang được xử lý. Chúng tôi sẽ gửi email đến ${email} khi hoàn tất."); window.history.back();</script>`);
-    }, 3000);
+    }, 0);
 
     try {
       let swatchValueIds = detailData?.preview?.imagePlaceHoldersPreview
