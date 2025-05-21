@@ -103,13 +103,16 @@ if (cluster.isMaster) {
     await retryGoto(page, productUrl);
 
     let shopifyDomain = await page.evaluate(() => {
-      new Promise(resolve => setTimeout(resolve, 3000));
       try {
         return Shopify.shop;
       } catch {
         return null;
       }
     });
+
+    if (!shopifyDomain && productUrl.includes('pawfecthouse.com')) {
+      shopifyDomain = 'thepawfecthouse.myshopify.com';
+    }
 
     if (!shopifyDomain) {
       return res.send('<script>alert("❌ Không phải Shopify hoặc Product này không thuộc app customily."); window.history.back();</script>');
