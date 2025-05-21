@@ -108,7 +108,9 @@ if (cluster.isMaster) {
           if (typeof Shopify !== 'undefined' && Shopify.shop) {
             return Shopify.shop;
           }
-          new Promise(resolve => setTimeout(resolve, 50));
+          new Promise(resolve => setTimeout(resolve, 1000));
+          console.log('Waiting for Shopify object...');
+          
         }
       } catch {
         return null;
