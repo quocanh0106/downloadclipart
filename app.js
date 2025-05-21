@@ -104,7 +104,12 @@ if (cluster.isMaster) {
 
     let shopifyDomain = await page.evaluate(() => {
       try {
-        return Shopify?.shop || null;
+        for (let i = 0; i < 10; i++) {
+          if (typeof Shopify !== 'undefined' && Shopify.shop) {
+            return Shopify.shop;
+          }
+          new Promise(resolve => setTimeout(resolve, 50));
+        }
       } catch {
         return null;
       }
