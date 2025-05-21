@@ -102,13 +102,12 @@ if (cluster.isMaster) {
     let page = await browser.newPage();
     await retryGoto(page, productUrl);
 
-    let shopifyDomain = await page.evaluate(() => {
-      for (let i = 0; i < 10; i++) {
+    const shopifyDomain = await page.evaluate(async () => {
+      for (let i = 0; i < 50; i++) {
         if (typeof Shopify !== 'undefined' && Shopify.shop) {
           return Shopify.shop;
         }
-        new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('Waiting for Shopify object...');
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
       return null;
     });
