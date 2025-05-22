@@ -1,0 +1,147 @@
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="preload" href="/main.css" as="style">
+  <link rel="stylesheet" href="/main.css">
+  <link rel="preload" href="/all.min.css" as="style">
+  <link rel="stylesheet" href="/all.min.css">
+  <title>Support</title>
+</head>
+
+<body>
+  <div class="loading hidden" style="display: none;">
+    <div class="loading-content">
+      <img src="/logo.png" alt="Logo" class="loading-logo">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+      </div>
+      <p>Loading clipart magic...</p>
+    </div>
+  </div>
+
+  <header class="sticky-header">
+    <div class="header-container">
+      <a href="/" class="logo-container">
+        <img src="/logo.png" alt="Logo" width="150" height="auto" loading="lazy">
+      </a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="/services">Services</a></li>
+          <li><a href="/about">About Us</a></li>
+          <li><a href="/support">Support</a></li>
+        </ul>
+      </nav>
+      <div class="social-wrapper">
+        <a href="https://www.facebook.com/andendo1699" target="_blank" class="social-icon">
+          <i class="fab fa-facebook-f"></i>
+        </a>
+        <a href="tel:0327238659" class="social-icon">
+          <i class="fas fa-phone"></i>
+        </a>
+        <a href="mailto:andendo1699@gmail.com" class="social-icon">
+          <i class="fas fa-envelope"></i>
+        </a>
+      </div>
+      <button class="mobile-menu-toggle">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="contact h-screen">
+      <div class="container">
+        <div class="contact-content">
+          <h2 class="section-title">Need <span class="accent-text">Help?</span></h2>
+          <p>I'm available for custom Shopify theme development, app creation, and other technical services.</p>
+          <div class="contact-methods">
+            <a href="https://www.facebook.com/andendo1699" target="_blank" class="contact-method">
+              <i class="fab fa-facebook-f"></i>
+              <span>Facebook</span>
+            </a>
+            <a href="tel:0327238659" class="contact-method">
+              <i class="fas fa-phone"></i>
+              <span>0327238659</span>
+            </a>
+            <a href="mailto:andendo1699@gmail.com" class="contact-method">
+              <i class="fas fa-envelope"></i>
+              <span>andendo1699@gmail.com</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-container">
+      <div class="footer-wave">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 147"
+          style="transform: translateY(-1px) rotateZ(180deg);">
+          <path fill="#ffffff" fill-opacity="1"
+            d="M0,64L48,80C96,96,192,128,288,128C384,128,480,96,576,90.7C672,85,768,107,864,122.7C960,139,1056,149,1152,144C1248,139,1344,117,1392,106.7L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z">
+          </path>
+        </svg>
+      </div>
+      <div class="footer-content">
+        <div class="footer-logo">
+          <img src="/logo.png" alt="Logo" width="180" height="auto" loading="lazy">
+          <div class="social-wrapper">
+            <a href="https://www.facebook.com/andendo1699" target="_blank" class="social-icon">
+              <i class="fab fa-facebook-f"></i>
+            </a>
+            <a href="tel:0327238659" class="social-icon">
+              <i class="fas fa-phone"></i>
+            </a>
+            <a href="mailto:andendo1699@gmail.com" class="social-icon">
+              <i class="fas fa-envelope"></i>
+            </a>
+          </div>
+        </div>
+        <div class="footer-links">
+          <div class="footer-list">
+            <h3>Developer Info</h3>
+            <a href="/CV-Anden-Do.pdf" target="_blank">CV Dev</a>
+          </div>
+          <div class="footer-list">
+            <h3>Projects</h3>
+            <a href="https://ypbclub.com/" target="_blank" rel="nofollow">YPB</a>
+            <a href="https://jerseyprosport.com/" target="_blank" rel="nofollow">Jersey Sport</a>
+            <a href="https://auros-dev.myshopify.com/" target="_blank" rel="nofollow">Auros - Password: 1</a>
+          </div>
+        </div>
+      </div>
+      <div class="copyright">
+        <p>© 2025 Clipart Crawler. Made by Anden.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Mobile menu toggle
+    document.querySelector('.mobile-menu-toggle').addEventListener('click', function () {
+      document.querySelector('.main-nav').classList.toggle('active');
+      this.classList.toggle('active');
+    });
+
+    // Loading animation
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        document.querySelector('.loading').classList.add('hidden');
+        setTimeout(function () {
+          document.querySelector('.loading').style.display = 'none';
+        }, 500);
+      }, 1500);
+    });
+
+    // Floating animation for clipart
+    const cliparts = document.querySelectorAll('.floating-clipart');
+    cliparts.forEach((clipart, index) => {
+      clipart.style.animationDelay = `${index * 0.3}s`;
+    });
+  </script>
+</body>
+</html>
