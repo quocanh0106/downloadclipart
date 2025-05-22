@@ -133,7 +133,7 @@ if (cluster.isMaster) {
     let productUrl = req.body.url;
     let email = req.body.email;
 
-    let maxOptions = 1;
+    let maxOptions = 1000;
     let downloadDir = path.join(__dirname, "downloads");
     if (!fs.existsSync(downloadDir)) fs.mkdirSync(downloadDir);
 
