@@ -256,7 +256,7 @@ if (cluster.isMaster) {
           return {
             Library_LibraryId: item.folder,
             LibraryCategoryId: null,
-            Name: img[0].toString(),
+            Name: img[1].split("/").pop().split(".")[0],
             Path: img[1].replace("/Content", "https://cdn.customily.com"),
             ThumbnailPath: img[1].replace("/Content", "https://cdn.customily.com"),
           }
