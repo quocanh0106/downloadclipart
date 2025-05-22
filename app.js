@@ -200,9 +200,18 @@ if (cluster.isMaster) {
       );
     }, 0);
 
+    let dynamicImagesPath = []
+
     try {
       let swatchValueIds = detailData?.preview?.imagePlaceHoldersPreview
-        ?.map((item) => item.imageLibraryId)
+        ?.map((item) => {
+          if (item?.imageLibraryId) {
+            return item.imageLibraryId;
+          } else {
+            dynamicImagesPath.push({folder: item.id, images: item?.dynamicImagesPath})
+            return null;
+          }
+        })
         .filter(
           (val, index, self) => val != null && self.indexOf(val) === index
         );
@@ -241,6 +250,19 @@ if (cluster.isMaster) {
             "https://cdn.customily.com"
           ),
         }));
+
+      dynamicImagesPath.forEach((item) => {
+        let allImages = JSON.parse(item.images).map((img) => {
+          return {
+            Library_LibraryId: item.folder,
+            LibraryCategoryId: null,
+            Name: img[0].toString(),
+            Path: img[1].replace("/Content", "https://cdn.customily.com"),
+            ThumbnailPath: img[1].replace("/Content", "https://cdn.customily.com"),
+          }
+        })
+        listClipArt.push(...allImages)
+      })
 
       let validCliparts = listClipArt.filter((item) => item?.Path); // hoặc bạn filter kiểu khác
       let groupedByLibrary = {};
