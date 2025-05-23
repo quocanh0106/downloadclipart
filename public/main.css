@@ -525,7 +525,7 @@ button {
   scroll-margin-top: 150px;
   padding: var(--section-padding);
   background-color: #ffffff;
-  padding-top: 0;
+  padding-top: 20px;
 }
 
 .crawl-form .container {
