@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  crawler:
+    build: .
+    container_name: web-crawler
+    restart: unless-stopped
+    ports:
+      - "3000:3000"         # đổi nếu app bạn dùng port khác
+    environment:
+      TZ: Asia/Bangkok
+      NODE_ENV: production
+      # cấu hình email (nếu dùng nodemailer)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+    volumes:
+      - ./downloads:/usr/src/app/downloads
+      - ./logs:/usr/src/app/logs
+    shm_size: "2g"          # rất quan trọng cho Chromium; giảm nếu máy yếu RAM
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/', r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

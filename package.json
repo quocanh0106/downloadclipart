@@ -4,7 +4,8 @@
   "description": "This is web crawler built using cheerio js and node-fetch.",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "start": "node app.js"
   },
   "type": "module",
   "keywords": [],

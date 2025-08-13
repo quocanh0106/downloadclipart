@@ -13,10 +13,11 @@ import os from "os";
 import pLimit from "p-limit";
 import axiosInstance from "./utils/axios.js";
 import axios from "axios";
-let numCPUs = os.cpus().length;
-let PORT = 8080;
-let __dirname = dirname(fileURLToPath(import.meta.url));
 import nodemailer from "nodemailer";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const numCPUs = os.cpus().length;
+const PORT = process.env.PORT || 3000;
 
 let retryGoto = async (page, url, retries = 4) => {
   for (let i = 0; i < retries; i++) {
@@ -95,8 +96,8 @@ let saveCustomerEmailIfNew = (email) => {
     console.log(`📭 Email đã tồn tại: ${email}`);
   }
 };
-
-if (cluster.isMaster) {
+const isPrimary = cluster.isPrimary ?? cluster.isMaster;
+if (isPrimary) {
   console.log(`✅ Master process ${process.pid} is running`);
   for (let i = 0; i < numCPUs; i++) cluster.fork();
   cluster.on("exit", (worker) => {
@@ -145,6 +146,7 @@ if (cluster.isMaster) {
       headless: "new",
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
+    
 
     let page = await browser.newPage();
     await retryGoto(page, productUrl);
