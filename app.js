@@ -14,7 +14,8 @@ import pLimit from "p-limit";
 import axiosInstance from "./utils/axios.js";
 import axios from "axios";
 import nodemailer from "nodemailer";
-
+import dotenv from "dotenv";
+dotenv.config();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const numCPUs = os.cpus().length;
 const PORT = process.env.PORT || 3000;
@@ -329,7 +330,7 @@ if (isPrimary) {
 
       output.on("close", async () => {
         // ✅ Gửi email khi file zip đã sẵn sàng
-        let downloadUrl = `${process.env.DOMAIN}/download/${verifiedHandle}.zip`;
+        let downloadUrl = `${DOMAIN}/download/${verifiedHandle}.zip`;
         await sendEmailWithDownloadLink(
           cleanUrl,
           productTitle,
