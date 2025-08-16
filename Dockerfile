@@ -16,13 +16,12 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY . .
 
 # Thư mục output / logs có quyền cho user không root
-RUN mkdir -p downloads logs && chown -R pptruser:pptruser /usr/src/app
+RUN mkdir -p downloads logs
 
 # Chạy dưới user pptruser (an toàn hơn root)
-USER pptruser
 
 # App của bạn đang dùng 8080 (đổi nếu khác)
-EXPOSE 8080
+EXPOSE 3000
 
 # Start
 CMD ["node", "app.js"]

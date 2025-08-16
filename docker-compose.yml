@@ -11,10 +11,6 @@ services:
       TZ: Asia/Bangkok
       NODE_ENV: production
       # cấu hình email (nếu dùng nodemailer)
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
     volumes:
       - ./downloads:/usr/src/app/downloads
       - ./logs:/usr/src/app/logs
