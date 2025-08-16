@@ -256,7 +256,7 @@ if (isPrimary) {
         }));
 
       dynamicImagesPath.forEach((item) => {
-        let allImages = JSON.parse(item.images).map((img) => {
+        let allImages = JSON.parse(item?.images)?.map((img) => {
           return {
             Library_LibraryId: item.folder,
             LibraryCategoryId: null,
