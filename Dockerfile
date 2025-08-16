@@ -5,7 +5,6 @@ WORKDIR /usr/src/app
 
 # Không tải Chromium lúc npm ci vì image đã có sẵn
 ENV NODE_ENV=production \
-    PUPPETEER_SKIP_DOWNLOAD=true \
     TZ=Asia/Bangkok
 
 # Cài deps trước để tối ưu cache
