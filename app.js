@@ -328,7 +328,7 @@ if (isPrimary) {
 
       output.on("close", async () => {
         // ✅ Gửi email khi file zip đã sẵn sàng
-        let downloadUrl = `https://crawlclipart.com/download/${verifiedHandle}.zip`;
+        let downloadUrl = `${process.env.DOMAIN}/download/${verifiedHandle}.zip`;
         await sendEmailWithDownloadLink(
           cleanUrl,
           productTitle,
