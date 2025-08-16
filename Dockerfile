@@ -19,6 +19,7 @@ COPY . .
 RUN mkdir -p downloads logs
 
 # Chạy dưới user pptruser (an toàn hơn root)
+USER pptruser
 
 # App của bạn đang dùng 8080 (đổi nếu khác)
 EXPOSE 3000
