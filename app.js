@@ -1,5 +1,5 @@
 /** @format */
-
+import dotenv from "dotenv";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import express from "express";
@@ -13,11 +13,14 @@ import os from "os";
 import pLimit from "p-limit";
 import axiosInstance from "./utils/axios.js";
 import axios from "axios";
-let numCPUs = os.cpus().length;
-let PORT = 8080;
-let __dirname = dirname(fileURLToPath(import.meta.url));
 import nodemailer from "nodemailer";
 
+let numCPUs = os.cpus().length;
+let PORT = process.env.PORT || 8080;
+let DOMAIN = process.env.DOMAIN || "http://localhost";
+
+let __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config();
 let retryGoto = async (page, url, retries = 4) => {
   for (let i = 0; i < retries; i++) {
     try {
@@ -52,7 +55,7 @@ let sendEmailWithDownloadLink = async (
     html: `
       <div style="max-width:650px;margin:auto;background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);font-family:'Poppins',sans-serif;color:#334155;">
         <div style="background-color:#f8fafc;border-bottom:1px solid #e2e8f0;padding:30px;text-align:center;">
-          <img src="https://crawlclipart.com/logo.png" alt="Clipart Service Logo" style="width:150px;height:auto;margin-bottom:15px;">
+          <img src="${DOMAIN}/logo.png" alt="Clipart Service Logo" style="width:150px;height:auto;margin-bottom:15px;">
         </div>
         <div style="padding:40px 30px;">
           <h1 style="font-size:22px;font-weight:600;color:#3b82f6;margin-bottom:20px;">Xử lý file clipart hoàn tất!</h1>
@@ -326,7 +329,7 @@ if (cluster.isMaster) {
 
       output.on("close", async () => {
         // ✅ Gửi email khi file zip đã sẵn sàng
-        let downloadUrl = `https://crawlclipart.com/download/${verifiedHandle}.zip`;
+        let downloadUrl = `${DOMAIN}/download/${verifiedHandle}.zip`;
         await sendEmailWithDownloadLink(
           cleanUrl,
           productTitle,
