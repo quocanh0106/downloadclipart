@@ -149,12 +149,52 @@ if (cluster.isMaster) {
     let page = await browser.newPage();
     await retryGoto(page, productUrl);
 
-    page.on('response', async (response) => {
+  // Bắt tất cả response ảnh
+  let collected = new Set();
+  page.on('response', async (response) => {
+    try {
       const url = response.url();
-      if (url.includes('/api/') || url.match(/\.(png|jpg|svg)$/)) {
-        console.log('Intercepted:', url);
+      if (url.match(/\.(png|jpg|jpeg|svg)$/i)) {
+        collected.add(url);
+        console.log('Image loaded:', url);
       }
-    });
+    } catch (err) {
+      console.error('Response error:', err.message);
+    }
+  });
+
+  // Click tuần tự từng .personalized-options img
+  await page.waitForSelector('.personalized-options img', { timeout: 5000 });
+  const optionImgs = await page.$$('.personalized-options img');
+  console.log(`Found ${optionImgs.length} option images`);
+
+  for (const [i, el] of optionImgs.entries()) {
+    try {
+      console.log(`Click option ${i + 1}`);
+      await el.click({ delay: 150 });
+
+      // sau khi click, đợi thêm 2s cho request ảnh bắn ra
+      await page.waitForResponse(
+        (resp) =>
+          resp.url().match(/\.(png|jpg|jpeg|svg)$/i) &&
+          resp.status() === 200,
+        { timeout: 5000 }
+      ).catch(() => {
+        console.log('⚠️ Không thấy response ảnh sau click');
+      });
+
+    } catch (err) {
+      console.log('Skip img click:', err.message);
+    }
+  }
+
+  // Đợi thêm network idle cho chắc
+  await page.waitForNetworkIdle({ idleTime: 2000, timeout: 0 });
+
+  // Xuất ra toàn bộ ảnh đã thu được
+  console.log('Collected resources:', [...collected]);
+
+
 
     // if (!shopifyDomain && productUrl.includes("pawfecthouse.com")) {
     //   shopifyDomain = "thepawfecthouse.myshopify.com";
