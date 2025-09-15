@@ -81,6 +81,157 @@ let sendEmailWithDownloadLink = async (
   });
 };
 
+async function waitUntilStable(page, selector, stableTime = 2000, checkInterval = 300) {
+  let lastCount = 0;
+  let stableFor = 0;
+
+  while (true) {
+    const els = await page.$$(selector);
+    const count = els.length;
+
+    if (count === lastCount) {
+      stableFor += checkInterval;
+    } else {
+      stableFor = 0;
+      lastCount = count;
+    }
+
+    if (stableFor >= stableTime) {
+      return els; // trả về khi ổn định
+    }
+
+    await new Promise((r) => setTimeout(r, checkInterval));
+  }
+}
+
+export async function crawlPersonalizedOptions(page, productUrl, newdirname) {
+  let collected = new Set();
+  let clickedImgs = new Set();
+  let changedSelects = new Set();
+
+  // Bắt response ảnh
+  page.on("response", async (response) => {
+    try {
+      const url = response.url();
+      if (url.includes("assets-v2.customall.io")) {
+        if (!collected.has(url)) {
+          collected.add(url);
+        }
+      }
+    } catch (err) {
+      console.error("Response error:", err.message);
+    }
+  });
+
+  // ==== 1. Xử lý IMG động ====
+  while (true) {
+    const imgs = await waitUntilStable(page, ".personalized-options img");
+    let foundNew = false;
+    console.log(`Found ${imgs.length} imgs`);
+    for (const el of imgs) {
+      const handle = await el.evaluate((el) => el.getAttribute("data-id") || el.src);
+      if (!clickedImgs.has(handle)) {
+        clickedImgs.add(handle);
+        try {
+          await el.click({ delay: 150 });
+          // ❗ Chờ DOM img ổn định lại sau click
+          await waitUntilStable(page, ".personalized-options img");
+          foundNew = true;
+          break; // BFS: query lại ngay lập tức
+        } catch (err) {
+          console.log("Skip img click:", err.message);
+        }
+      }
+    }
+
+    if (!foundNew) break;
+  }
+
+  // ==== 2. Xử lý SELECT động ====
+  while (true) {
+    const selects = await waitUntilStable(page, ".personalized-options select");
+    let foundNew = false;
+
+    for (const sel of selects) {
+      const selId = await sel.evaluate((el) => el.name || el.id || el.outerHTML);
+      if (!changedSelects.has(selId)) {
+        changedSelects.add(selId);
+        try {
+          const options = await sel.$$("option");
+
+          for (let j = 0; j < options.length; j++) {
+            const val = await options[j].evaluate((o) => o.value);
+            await sel.select(val);
+            // ❗ Chờ DOM select ổn định lại sau change
+            await waitUntilStable(page, ".personalized-options select");
+          }
+
+          foundNew = true;
+          break; // BFS: query lại ngay lập tức
+        } catch (err) {
+          console.log("Skip select element:", err.message);
+        }
+      }
+    }
+
+    if (!foundNew) break;
+  }
+
+  await page.waitForNetworkIdle({ idleTime: 2000, timeout: 0 });
+
+  // === 3. Lưu ảnh về folder + nén zip ===
+  const uniqueUrls = Array.from(collected);
+
+  let cleanUrl = productUrl.split("?")[0];
+  let productHandle =
+    new URL(cleanUrl).pathname.split("/products/")[1]?.split("/")[0] || "unknown";
+  let newFolder = path.join(newdirname, "downloads", productHandle);
+  if (!fs.existsSync(newFolder)) {
+    fs.mkdirSync(newFolder, { recursive: true });
+  }
+
+
+  for (let i = 0; i < uniqueUrls.length; i++) {
+    const url = uniqueUrls[i];
+    try {
+      const fileName = path.basename(new URL(url).pathname);
+      const filePath = path.join(newFolder, fileName);
+
+      const response = await axios.get(url, { responseType: "stream" });
+      const writer = fs.createWriteStream(filePath);
+
+      await new Promise((resolve, reject) => {
+        response.data.pipe(writer);
+        writer.on("finish", resolve);
+        writer.on("error", reject);
+      });
+
+      console.log(`✅ Saved ${fileName}`);
+    } catch (err) {
+      console.error(`❌ Lỗi tải ${url}:`, err.message);
+    }
+  }
+  console.log('chay xong download')
+  const zipPath = path.join(newdirname, "downloads", `${productHandle}.zip`);
+  await new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(zipPath);
+    const archive = archiver("zip", { zlib: { level: 9 } });
+
+    output.on("close", () => {
+      resolve();
+    });
+    archive.on("error", (err) => reject(err));
+
+    archive.pipe(output);
+    archive.directory(newFolder, false);
+    archive.finalize();
+  });
+
+
+  return { urls: uniqueUrls, folder: newFolder, zipPath };
+}
+
+
 let emailListPath = path.join(__dirname, "emails.json");
 if (!fs.existsSync(emailListPath))
   fs.writeFileSync(emailListPath, "[]", "utf-8");
@@ -132,7 +283,10 @@ if (cluster.isMaster) {
   app.post("/crawl", async (req, res) => {
     let productUrl = req.body.url;
     let email = req.body.email;
-
+    let cleanUrl = productUrl.split("?")[0];
+    let productHandle = new URL(cleanUrl).pathname
+      .split("/products/")[1]
+      ?.split("/")[0];
     let maxOptions = 1000;
     let downloadDir = path.join(__dirname, "downloads");
     if (!fs.existsSync(downloadDir)) fs.mkdirSync(downloadDir);
@@ -148,51 +302,12 @@ if (cluster.isMaster) {
 
     let page = await browser.newPage();
     await retryGoto(page, productUrl);
-
-  // Bắt tất cả response ảnh
-  let collected = new Set();
-  page.on('response', async (response) => {
-    try {
-      const url = response.url();
-      if (url.match(/\.(png|jpg|jpeg|svg)$/i)) {
-        collected.add(url);
-        console.log('Image loaded:', url);
-      }
-    } catch (err) {
-      console.error('Response error:', err.message);
-    }
-  });
-
-  // Click tuần tự từng .personalized-options img
-  await page.waitForSelector('.personalized-options img', { timeout: 5000 });
-  const optionImgs = await page.$$('.personalized-options img');
-  console.log(`Found ${optionImgs.length} option images`);
-
-  for (const [i, el] of optionImgs.entries()) {
-    try {
-      console.log(`Click option ${i + 1}`);
-      await el.click({ delay: 150 });
-
-      // sau khi click, đợi thêm 2s cho request ảnh bắn ra
-      await page.waitForResponse(
-        (resp) =>
-          resp.url().match(/\.(png|jpg|jpeg|svg)$/i) &&
-          resp.status() === 200,
-        { timeout: 5000 }
-      ).catch(() => {
-        console.log('⚠️ Không thấy response ảnh sau click');
-      });
-
-    } catch (err) {
-      console.log('Skip img click:', err.message);
-    }
-  }
-
-  // Đợi thêm network idle cho chắc
-  await page.waitForNetworkIdle({ idleTime: 2000, timeout: 0 });
-
-  // Xuất ra toàn bộ ảnh đã thu được
-  console.log('Collected resources:', [...collected]);
+    setTimeout(() => {
+      res.send(
+        `<script>alert("⏳ File đang được xử lý. Chúng tôi sẽ gửi email đến ${email} khi hoàn tất."); window.history.back();</script>`
+      );
+    }, 0);
+    crawlPersonalizedOptions(page, productUrl, __dirname)
 
 
 
