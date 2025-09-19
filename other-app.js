@@ -104,123 +104,127 @@ async function waitUntilStable(page, selector, stableTime = 2000, checkInterval 
   }
 }
 
-export async function crawlPersonalizedOptions(page, productUrl, newdirname) {
-  let collected = new Set();
-  let clickedImgs = new Set();
-  let changedSelects = new Set();
-
+export async function crawlPersonalizedOptions(page, productUrl) {
   // Bắt response ảnh
   page.on("response", async (response) => {
     const url = response.url();
-    if (url.includes("assets-v2.customall.io")) {
+    if (url.includes("assets-v2.customall.io") && url.match(/\.(png|jpg|jpeg|svg)$/i)) {
       if (!collected.has(url)) {
         collected.add(url);
+        console.log("Image loaded:", url);
       }
     }
   });
 
-  while (true) {
-    const selects = await waitUntilStable(page, ".personalized-options select");
-    let foundNew = false;
+let collected = new Set();
+let visited = new Set();
+let stack = [];
 
-    for (const sel of selects) {
-      const selId = await sel.evaluate((el) => el.name || el.id || el.outerHTML);
-      if (!changedSelects.has(selId)) {
-        changedSelects.add(selId);
-        try {
-          const options = await sel.$$("option");
+// Snapshot lần đầu
+const initial = [
+  ...(await waitUntilStable(page, ".personalized-options img", 5000)),
+  ...(await waitUntilStable(page, ".personalized-options select", 5000))
+];
 
-          for (let j = 0; j < options.length; j++) {
-            const val = await options[j].evaluate((o) => o.value);
-            await sel.select(val);
-            // ❗ Chờ DOM select ổn định lại sau change
-            await waitUntilStable(page, ".personalized-options select");
-          }
+stack.push(...initial);
+let actionCount = 0;
+const MAX_ACTIONS = 50; // tăng giới hạn nếu cần
 
-          foundNew = true;
-          break; // BFS: query lại ngay lập tức
-        } catch (err) {
-          console.log("Skip select element:", err.message);
-        }
+while (stack.length > 0 && actionCount < MAX_ACTIONS) {
+  actionCount++;
+  const el = stack.pop(); // LIFO → DFS
+
+  const tag = await el.evaluate(el => el.tagName.toLowerCase());
+  let handle = await el.evaluate(
+    el =>
+      el.getAttribute("data-id") ||
+      el.src ||
+      el.name ||
+      el.id ||
+      el.outerHTML
+  );
+
+  if (visited.has(handle)) continue;
+  visited.add(handle);
+
+  try {
+    if (tag === "img") {
+      console.log("Clicking img:", handle);
+      await el.click({ delay: 500 });
+      await waitUntilStable(page, ".personalized-options img");
+    } else if (tag === "select") {
+      const options = await el.$$("option");
+      for (let opt of options) {
+        const val = await opt.evaluate(o => o.value);
+        console.log("Selecting:", val);
+        await el.select(val);
+        await waitUntilStable(page, ".personalized-options select");
       }
     }
 
-    if (!foundNew) break;
-  }
+    // Sau khi thao tác → snapshot lại DOM
+    const newEls = [
+      ...(await waitUntilStable(page, ".personalized-options img", 2000)),
+      ...(await waitUntilStable(page, ".personalized-options select", 2000))
+    ];
 
-  while (true) {
-    const imgs = await waitUntilStable(page, ".personalized-options img");
-    let foundNew = false;
-    for (const el of imgs) {
-      const handle = await el.evaluate((el) => el.getAttribute("data-id") || el.src);
-      if (!clickedImgs.has(handle)) {
-        clickedImgs.add(handle);
-        try {
-          await el.click({ delay: 1000 });
-          // ❗ Chờ DOM img ổn định lại sau click
-          await waitUntilStable(page, ".personalized-options img");
-          foundNew = true;
-          break;
-        } catch (err) {
-          console.log("Skip img click:", err.message);
-        }
+    for (const newEl of newEls) {
+      const newHandle = await newEl.evaluate(
+        el =>
+          el.getAttribute("data-id") ||
+          el.src ||
+          el.name ||
+          el.id ||
+          el.outerHTML
+      );
+      if (!visited.has(newHandle)) {
+        stack.push(newEl); // DFS: xử lý ngay state mới
       }
     }
-
-    if (!foundNew) break;
+  } catch (err) {
+    console.log("⚠️ Skip element:", err.message);
   }
+}
 
   await page.waitForNetworkIdle({ idleTime: 2000, timeout: 0 });
 
-  // === 3. Lưu ảnh về folder + nén zip ===
+  // === 3. Lưu ảnh về folder + zip ===
   const uniqueUrls = Array.from(collected);
+  console.log(`Collected ${uniqueUrls.length} images`);
 
   let cleanUrl = productUrl.split("?")[0];
-  let productHandle =
-    new URL(cleanUrl).pathname.split("/products/")[1]?.split("/")[0] || "unknown";
-  let newFolder = path.join(newdirname, "downloads", productHandle);
-  if (!fs.existsSync(newFolder)) {
-    fs.mkdirSync(newFolder, { recursive: true });
-  }
+  let productHandle = new URL(cleanUrl).pathname.split("/products/")[1]?.split("/")[0] || "unknown";
+  let newFolder = path.join(__dirname, "downloads", productHandle);
+  if (!fs.existsSync(newFolder)) fs.mkdirSync(newFolder, { recursive: true });
 
-
-  for (let i = 0; i < uniqueUrls.length; i++) {
-    const url = uniqueUrls[i];
+  for (const url of uniqueUrls) {
     try {
       const fileName = path.basename(new URL(url).pathname);
       const filePath = path.join(newFolder, fileName);
-
       const response = await axios.get(url, { responseType: "stream" });
       const writer = fs.createWriteStream(filePath);
-
       await new Promise((resolve, reject) => {
         response.data.pipe(writer);
         writer.on("finish", resolve);
         writer.on("error", reject);
       });
-
       console.log(`✅ Saved ${fileName}`);
     } catch (err) {
-      console.error(`❌ Lỗi tải ${url}:`, err.message);
+      console.error(`❌ Error saving ${url}:`, err.message);
     }
   }
-  
-  console.log('chay xong download')
-  const zipPath = path.join(newdirname, "downloads", `${productHandle}.zip`);
+
+  // Zip
+  const zipPath = path.join(__dirname, "downloads", `${productHandle}.zip`);
   await new Promise((resolve, reject) => {
     const output = fs.createWriteStream(zipPath);
     const archive = archiver("zip", { zlib: { level: 9 } });
-
-    output.on("close", () => {
-      resolve();
-    });
-    archive.on("error", (err) => reject(err));
-
+    output.on("close", resolve);
+    archive.on("error", reject);
     archive.pipe(output);
     archive.directory(newFolder, false);
     archive.finalize();
   });
-
 
   return { urls: uniqueUrls, folder: newFolder, zipPath };
 }
@@ -304,7 +308,7 @@ if (cluster.isMaster) {
       );
     }, 0);
     
-    crawlPersonalizedOptions(page, productUrl, __dirname)
+    crawlPersonalizedOptions(page, productUrl)
   });
 
   app.get("/download/:filename", (req, res) => {
